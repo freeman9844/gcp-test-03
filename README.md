@@ -120,7 +120,3 @@ await session.send_client_content(
 - [Google Gen AI Python SDK](https://github.com/googleapis/python-genai)
 - [Gemini API Documentation](https://ai.google.dev/docs)
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs)
-
-## 📄 라이선스
-
-이 프로젝트는 교육 및 테스트 목적으로 자유롭게 사용할 수 있습니다.
