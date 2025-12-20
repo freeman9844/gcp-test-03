@@ -102,16 +102,17 @@ class GeminiLiveAPITestVertexAI:
                         for part in model_turn.parts:
                             # 텍스트 응답 출력
                             if part.text:
-                                # 어시스턴트 접두어는 한 번만 출력되도록 처리
-                                print(f"{part.text}", end="", flush=True)
+                                print(f"[Text]: {part.text}", end="", flush=True)
                             
-                            # 오디오 데이터 재생
-                            if part.inline_data and self.audio_available and self.audio_stream:
-                                try:
-                                    self.audio_stream.write(part.inline_data.data)
-                                except Exception as e:
-                                    print(f"\n❌ Audio playback error: {e}")
-                                    self.audio_available = False
+                            # 오디오 데이터 수신 확인
+                            if part.inline_data:
+                                print(f".", end="", flush=True) # 오디오 데이터 수신 표시
+                                if self.audio_available and self.audio_stream:
+                                    try:
+                                        self.audio_stream.write(part.inline_data.data)
+                                    except Exception as e:
+                                        print(f"\n❌ Audio playback error: {e}")
+                                        self.audio_available = False
                     
                     if response.server_content.turn_complete:
                         print("\n✅ Turn complete.")
@@ -165,62 +166,89 @@ class GeminiLiveAPITestVertexAI:
         )
 
 
-async def run_scenario(tester, title, instruction, message):
-    """지정된 시나리오를 새로운 세션에서 실행합니다."""
-    print("\n" + "=" * 60)
-    print(f"SCENARIO: {title}")
-    # print(f"Instruction: {instruction[:50]}...")
-    print("=" * 60)
-    
-    async with await tester.connect(initial_instruction=instruction) as session:
-        tester.session = session
-        listener = asyncio.create_task(tester.handle_session_events())
+    async def update_instruction(self, new_instruction: str):
+        """
+        시스템 인스트럭션을 실시간으로 업데이트합니다.
         
-        await tester.send_text(message)
+        Args:
+            new_instruction: 새로운 시스템 인스트럭션
+        """
+        if not self.session:
+            raise RuntimeError("Session not connected.")
         
-        # 충분한 응답 시간을 위해 대기 (모델의 말하기 속도 고려)
-        await asyncio.sleep(12)
+        print(f"\n🔄 Updating system instruction...")
+        print(f"   New: {new_instruction[:50]}...")
         
-        listener.cancel()
-        await asyncio.gather(listener, return_exceptions=True)
+        # 시스템 인스트럭션 업데이트 (요청된 방식: turn_complete=False)
+        await self.session.send_client_content(
+            turns=[
+                types.Content(
+                    role="system",
+                    parts=[types.Part(text=new_instruction)]
+                )
+            ],
+            turn_complete=False
+        )
+        print("✅ System instruction update sent (turn_complete=False).")
 
 
-async def main():
-    """메인 함수"""
-    print("\n🚀 Google Gemini Live API 테스트 시작 (Vertex AI)\n")
-    project_id = "jwlee-argolis-202104"
+async def test_all_scenarios(project_id: str):
+    """모든 시나리오를 단일 세션에서 순차적으로 실행합니다."""
+    print("\n🚀 Google Gemini Live API 테스트 시작 (Vertex AI - Single Session)\n")
     
     tester = GeminiLiveAPITestVertexAI(project_id=project_id)
     
-    try:
-        # 시나리오 1: 기본 대화
-        await run_scenario(
-            tester, 
-            "1. Basic Conversation", 
-            "You are a helpful assistant.", 
-            "Hello! Who are you?"
-        )
+    # 초기 인스트럭션
+    initial_instruction = "You are a helpful assistant."
+    
+    async with await tester.connect(initial_instruction=initial_instruction) as session:
+        tester.session = session
+        listener = asyncio.create_task(tester.handle_session_events())
         
-        # 시나리오 2: 페르소나 변경 (해적)
-        await run_scenario(
-            tester, 
-            "2. Pirate Persona Update Test", 
-            "You are now a pirate. Talk like one! Use 'Arrr' and 'Matey'.", 
-            "What is your mission, captain?"
-        )
-        
-        # 시나리오 3: 한국어 비서
-        await run_scenario(
-            tester, 
-            "3. Korean Assistant Locale Test", 
-            "당신은 이제 친절한 한국어 비서입니다. 한국어로 정중하게 답변하세요.", 
-            "오늘 날씨에 대해 이야기해줘."
-        )
-        
-    finally:
-        tester.close()
-        print("\n✅ 모든 테스트 완료!")
+        try:
+            # 1. 기본 대화
+            print("\n" + "=" * 60)
+            print("SCENARIO 1: Basic Conversation")
+            print("=" * 60)
+            await tester.send_text("Hello! Who are you?")
+            await asyncio.sleep(10)
+            
+            # 2. 페르소나 변경 (해적) - 실시간 업데이트
+            print("\n" + "=" * 60)
+            print("SCENARIO 2: Pirate Persona Update Test (Real-time)")
+            print("=" * 60)
+            
+            await tester.update_instruction("You are now a pirate. Talk like one! Use 'Arrr' and 'Matey'.")
+            # 인스트럭션 업데이트가 적용될 시간을 줌 (서버 처리 대기)
+            await asyncio.sleep(2)
+            
+            await tester.send_text("What is your mission, captain?")
+            await asyncio.sleep(10)
+            
+            # 3. 한국어 비서 - 실시간 업데이트
+            print("\n" + "=" * 60)
+            print("SCENARIO 3: Korean Assistant Locale Test (Real-time)")
+            print("=" * 60)
+            
+            await tester.update_instruction("당신은 이제 친절한 한국어 비서입니다. 한국어로 정중하게 답변하세요.")
+            await asyncio.sleep(2)
+            
+            await tester.send_text("오늘 날씨에 대해 이야기해줘.")
+            await asyncio.sleep(10)
+            
+        except Exception as e:
+            print(f"\n❌ Test failed with error: {e}")
+        finally:
+            listener.cancel()
+            try:
+                await listener
+            except asyncio.CancelledError:
+                pass
+            tester.close()
+
+    print("\n✅ 모든 테스트 완료!")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    project_id = "jwlee-argolis-202104"
+    asyncio.run(test_all_scenarios(project_id))
