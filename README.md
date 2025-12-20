@@ -48,32 +48,20 @@ gcloud config set project YOUR_PROJECT_ID
 python test_gemini_live_vertexai.py
 ```
 
-## 📋 주요 기능
+## ⚠️ 오디오 재생 시 주의사항 (Technical Findings)
 
-### 실시간 시스템 인스트럭션 업데이트
+**중요**: `gemini-live-2.5-flash-native-audio` 모델 사용 시, 세션 중간에 `role="system"`으로 시스템 인스트럭션을 업데이트하면 **오디오 스트림이 중단되는 현상 (Silent Response)**이 확인되었습니다.
 
-세션 도중에 시스템 인스트럭션을 동적으로 변경할 수 있습니다:
+따라서, **오디오 재생이 필수적인 경우**에는 페르소나나 로케일을 변경할 때마다 **새로운 세션을 연결(Separate Sessions)하는 방식**을 권장합니다.
 
-```python
-# 인스트럭션 업데이트
-await session.send_client_content(
-    turns=[
-        types.Content(
-            role="system",
-            parts=[types.Part(text="새로운 인스트럭션")]
-        )
-    ],
-    turn_complete=False
-)
-```
+본 샘플 코드는 안정적인 오디오 출력을 위해 `run_scenario` 헬퍼 함수를 통해 각 테스트 케이스마다 깨끗한 세션을 새로 생성하도록 구성되었습니다.
 
 ## 🧪 테스트 시나리오
+1. **기본 대화**: Live API 세션 연결 및 메시지 송수신 (오디오 출력 확인)
+2. **페르소나 변경**: 해적 캐릭터로 변경 후 새로운 세션에서 테스트 (오디오 출력 확인)
+3. **로케일 변경**: 한국어 비서로 변경 후 새로운 세션에서 테스트 (오디오 출력 확인)
 
-1. **기본 대화**: Live API 세션 연결 및 메시지 송수신
-2. **페르소나 변경**: 일반 어시스턴트 → 해적 캐릭터로 실시간 전환
-3. **로케일 변경**: 영어 어시스턴트 → 한국어 비서로 실시간 전환
-
-모든 시나리오가 성공적으로 검증되었습니다.
+모든 시나리오에서 오디오 재생이 성공적으로 검증되었습니다.
 
 ## 📁 파일 구조
 
@@ -107,10 +95,10 @@ await session.send_client_content(
 
 ### 시스템 인스트럭션 업데이트
 
-최신 Live API에서는 `role="system"`을 가진 메시지를 전송하여 인스트럭션을 업데이트합니다:
+Live API는 `role="system"` 메시지를 통해 중간에 설정을 변경할 수 있지만, **오디오 모드에서는 권장하지 않습니다**.
 
 ```python
-# ✅ 실시간 업데이트
+# 텍스트 전용 모드에서는 유효하나, 오디오 스트림은 끊길 수 있음
 await session.send_client_content(
     turns=[
         types.Content(
