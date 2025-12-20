@@ -179,7 +179,7 @@ class GeminiLiveAPITestVertexAI:
         print(f"\n🔄 Updating system instruction...")
         print(f"   New: {new_instruction[:50]}...")
         
-        # 시스템 인스트럭션 업데이트 (요청된 방식: turn_complete=False)
+        # 시스템 인스트럭션 업데이트 (검증된 방식: role="system", turn_complete=False)
         await self.session.send_client_content(
             turns=[
                 types.Content(
@@ -190,7 +190,6 @@ class GeminiLiveAPITestVertexAI:
             turn_complete=False
         )
         print("✅ System instruction update sent (turn_complete=False).")
-
 
 async def test_all_scenarios(project_id: str):
     """모든 시나리오를 단일 세션에서 순차적으로 실행합니다."""
