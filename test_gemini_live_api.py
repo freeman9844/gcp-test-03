@@ -8,6 +8,12 @@ import os
 from google import genai
 from google.genai import types
 
+try:
+    import pyaudio
+    AUDIO_AVAILABLE = True
+except ImportError:
+    AUDIO_AVAILABLE = False
+
 
 class GeminiLiveAPITest:
     """Gemini Live API 테스트 클래스 (Google AI Studio)"""
@@ -21,6 +27,28 @@ class GeminiLiveAPITest:
         self.client = genai.Client(api_key=api_key)
         self.model_name = model_name
         self.session = None
+        
+        # 오디오 관련 초기화
+        self.audio = None
+        self.audio_stream = None
+        if AUDIO_AVAILABLE:
+            self.audio = pyaudio.PyAudio()
+            print("✅ Audio system initialized.")
+        else:
+            print("⚠️  PyAudio not found. Audio playback will be disabled.")
+    
+    def _setup_audio_stream(self):
+        """오디오 스트림을 설정합니다 (24kHz, 16-bit PCM, Mono)."""
+        if not self.audio:
+            return
+            
+        print("🔈 Opening audio output stream...")
+        self.audio_stream = self.audio.open(
+            format=pyaudio.paInt16,
+            channels=1,
+            rate=24000,
+            output=True
+        )
     
     async def connect(self, initial_instruction: str = "You are a helpful assistant."):
         """
@@ -47,23 +75,47 @@ class GeminiLiveAPITest:
         if not self.session:
             return
             
-        print("\n👂 Listening for responses...")
+        print("\n👂 Listening for responses (Audio & Text)...")
+        self._setup_audio_stream()
         
         try:
             async for response in self.session.receive():
-                # 서버로부터 받은 응답 처리
-                if response.text:
-                    print(f"\n🤖 Assistant: {response.text}")
-                elif response.server_content and response.server_content.model_turn:
-                    for part in response.server_content.model_turn.parts:
-                        if part.text:
-                            print(f"\n🤖 Assistant: {part.text}")
+                # server_content를 통해 텍스트와 오디오 데이터를 직접 처리합니다.
+                if response.server_content:
+                    model_turn = response.server_content.model_turn
+                    if model_turn:
+                        for part in model_turn.parts:
+                            # 텍스트 응답 출력
+                            if part.text:
+                                print(f"\n🤖 Assistant: {part.text}", end="", flush=True)
+                            
+                            # 오디오 데이터 재생 (PCM 16-bit, 24kHz, Mono)
+                            if part.inline_data and self.audio_stream:
+                                self.audio_stream.write(part.inline_data.data)
+                    
+                    if response.server_content.turn_complete:
+                        print("\n✅ Turn complete.")
+
                 elif response.tool_call:
                     print(f"\n🔧 Tool call: {response.tool_call}")
+                    
         except asyncio.CancelledError:
             print("\n🛑 Listening task cancelled.")
         except Exception as e:
             print(f"\n⚠️  Session ended or error occurred: {e}")
+        finally:
+            self._close_audio()
+
+    def _close_audio(self):
+        """오디오 스트림을 닫습니다."""
+        if self.audio_stream:
+            self.audio_stream.stop_stream()
+            self.audio_stream.close()
+            self.audio_stream = None
+        if self.audio:
+            self.audio.terminate()
+            self.audio = None
+        print("🔈 Audio stream closed.")
     
     async def send_text(self, text: str, end_of_turn: bool = True):
         """

@@ -11,6 +11,20 @@
 - ✅ 실시간 로케일 전환 (영어 → 한국어)
 - ✅ `google-genai` v1.56.0 SDK의 올바른 사용법 확인
 
+## 🔊 오디오 재생 설정 (Mac)
+
+이 프로젝트는 실시간 오디오 응답을 듣기 위해 `PyAudio` 라이브러리를 사용합니다. Mac에서 이를 사용하려면 다음 단계가 필요합니다:
+
+1. **PortAudio 설치** (Homebrew 필요):
+   ```bash
+   brew install portaudio
+   ```
+
+2. **의존성 설치**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
 ## 🚀 빠른 시작
 
 ### 1. 설치
