@@ -1,5 +1,8 @@
 # Google Gemini Live API 테스트 샘플
 
+[English](README.en.md) | [한국어](README.md)
+
+
 `google-genai` (Unified SDK)를 사용한 Gemini Live API 실시간 시스템 인스트럭션 업데이트 테스트 코드입니다.
 
 ## ✅ 검증 완료

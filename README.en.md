@@ -1,5 +1,8 @@
 # Google Gemini Live API Test Sample
 
+[English](README.en.md) | [한국어](README.md)
+
+
 This repository contains test code for verifying real-time system instruction updates using the `google-genai` (Unified SDK) with the Gemini Live API.
 
 ## ✅ Verified Features
